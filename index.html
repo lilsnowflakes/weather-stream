@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Santa Clarita Weather - LoHi Hits</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { 
+  font-family: 'Courier New', monospace;
+  background: #2d1b69;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+}
+.weather-container {
+  width: 100%;
+  max-width: 1280px;
+  height: 700px;
+  position: relative;
+  background: #2d1b69;
+  border: 6px solid #1a1a2e;
+  box-shadow: 0 0 40px rgba(0,0,0,0.6);
+}
+.scanlines {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(0deg, rgba(0,0,0,0.15) 0px, transparent 1px, transparent 2px, rgba(0,0,0,0.15) 3px);
+  pointer-events: none;
+  z-index: 1000;
+}
+.header {
+  background: linear-gradient(90deg, #ff8c00 0%, #ff8c00 15%, transparent 15%, transparent 85%, #ff8c00 85%);
+  height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  position: relative;
+}
+.header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 85%;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 70px 40px 0 0;
+  border-color: #ff8c00 transparent transparent transparent;
+}
+.header::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 85%;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 0 70px 40px;
+  border-color: transparent transparent #ff8c00 transparent;
+}
+.logo {
+  font-size: 48px;
+  font-weight: bold;
+  z-index: 10;
+  position: relative;
+  left: 60px;
+}
+.logo-lohi {
+  color: #4169e1;
+  text-shadow: 3px 3px 0 #1e3a8a;
+}
+.logo-hits {
+  color: #ff8c00;
+  font-style: italic;
+}
+.screen-title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #ffeb3b;
+  font-size: 24px;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+  z-index: 10;
+}
+.screen-subtitle {
+  color: #ffeb3b;
+  font-size: 18px;
+  margin-left: 10px;
+}
+.clock-widget {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  z-index: 10;
+  position: relative;
+  right: 60px;
+}
+.clock-icon {
+  width: 40px;
+  height: 40px;
+  background: #4169e1;
+  border-radius: 50%;
+  border: 3px solid #fff;
+}
+.clock-time {
+  color: white;
+  font-size: 20px;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+}
+.clock-date {
+  color: white;
+  font-size: 16px;
+}
+.content-area {
+  background: linear-gradient(135deg, #1e3a8a 0%, #3b5998 100%);
+  height: calc(100% - 120px);
+  position: relative;
+}
+.screen {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 0.5s;
+}
+.screen.active {
+  opacity: 1;
+}
+.local-forecast {
+  padding: 40px;
+  color: white;
+  font-size: 32px;
+  line-height: 1.6;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+}
+.station-data {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  padding: 40px;
+}
+.data-card {
+  background: rgba(30, 58, 138, 0.8);
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+}
+.data-label {
+  color: #ffeb3b;
+  font-size: 16px;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+.data-value {
+  color: white;
+  font-size: 42px;
+  font-weight: bold;
+}
+.data-unit {
+  color: #a8dadc;
+  font-size: 20px;
+}
+.station-credit {
+  text-align: center;
+  color: #ffeb3b;
+  font-size: 14px;
+  margin-top: 10px;
+}
+.extended-forecast {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  padding: 40px;
+}
+.forecast-card {
+  background: rgba(30, 58, 138, 0.8);
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+}
+.forecast-day {
+  color: #ffeb3b;
+  font-size: 28px;
+  font-weight: bold;
+  margin-bottom: 15px;
+}
+.weather-icon-large {
+  font-size: 80px;
+  margin: 15px 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100px;
+}
+.forecast-desc {
+  color: white;
+  font-size: 20px;
+  margin: 10px 0;
+}
+.forecast-temps {
+  color: white;
+  font-size: 18px;
+  margin-top: 10px;
+}
+.forecast-temps .lo { color: #a8dadc; }
+.forecast-temps .hi { color: #ffeb3b; }
+.almanac-screen {
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+.almanac-section {
+  background: rgba(255, 140, 0, 0.9);
+  padding: 20px 30px;
+  border-radius: 8px;
+}
+.almanac-title {
+  color: #ffeb3b;
+  font-size: 28px;
+  font-weight: bold;
+  margin-bottom: 15px;
+}
+.almanac-row {
+  display: flex;
+  justify-content: space-around;
+  color: white;
+  font-size: 20px;
+  margin: 10px 0;
+}
+.moon-phases {
+  background: rgba(68, 68, 68, 0.9);
+  padding: 20px 30px;
+  border-radius: 8px;
+}
+.moon-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  margin-top: 15px;
+}
+.moon-phase {
+  text-align: center;
+  color: white;
+}
+.moon-icon {
+  font-size: 60px;
+  margin: 10px 0;
+}
+.moon-label {
+  font-size: 18px;
+  margin-bottom: 5px;
+}
+.moon-date {
+  font-size: 16px;
+  color: #ffeb3b;
+}
+.regional-map {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+#map {
+  width: 100%;
+  height: 100%;
+  filter: brightness(0.7) saturate(0.8);
+}
+.map-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.city-marker {
+  position: absolute;
+  color: white;
+  font-size: 16px;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.9), 0 0 10px rgba(0,0,0,0.8);
+  background: rgba(0,0,0,0.6);
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 2px solid #ffeb3b;
+  transform: translate(-50%, -50%);
+}
+.city-temp {
+  color: #ffeb3b;
+  font-size: 24px;
+  font-weight: bold;
+}
+.weather-icon-map {
+  font-size: 32px;
+  display: inline-block;
+  animation: float 3s ease-in-out infinite;
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-5px); }
+}
+.observations-table {
+  padding: 30px 40px;
+}
+.obs-table {
+  width: 100%;
+  background: rgba(30, 58, 138, 0.9);
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.obs-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 2fr 1.5fr;
+  padding: 15px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  font-size: 22px;
+}
+.obs-row:last-child { border-bottom: none; }
+.obs-city { text-align: left; }
+.obs-temp {
+  text-align: center;
+  color: #ffeb3b;
+  font-weight: bold;
+}
+.obs-condition { text-align: center; }
+.obs-wind { text-align: right; }
+.bottom-bar {
+  background: linear-gradient(90deg, #1e3a8a 0%, #2563eb 100%);
+  height: 50px;
+  display: flex;
+  align-items: center;
+  padding: 0 30px;
+  border-top: 3px solid #ffeb3b;
+}
+.info-text {
+  color: white;
+  font-size: 18px;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+}
+.loading {
+  color: white;
+  font-size: 24px;
+  text-align: center;
+  padding: 100px;
+}
+.cloud-part { fill: #c0c0c0; }
+.sun-part { fill: #ffeb3b; }
+.rain-drop { fill: #4169e1; }
+.lightning { fill: #ffeb3b; }
+@keyframes rain {
+  0% { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(20px); opacity: 0; }
+}
+.rain-drop { animation: rain 0.8s linear infinite; }
+.rain-drop:nth-child(2) { animation-delay: 0.2s; }
+.rain-drop:nth-child(3) { animation-delay: 0.4s; }
+.rain-drop:nth-child(4) { animation-delay: 0.6s; }
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+.lightning { animation: pulse 1.5s ease-in-out infinite; }
+</style>
+</head>
+<body>
+
+<div class="weather-container">
+  <div class="scanlines"></div>
+  
+  <div class="header">
+    <div class="logo">
+      <span class="logo-lohi">LoHi</span>
+      <span class="logo-hits">Hits</span>
+    </div>
+    <div class="screen-title" id="screenTitle">Local Forecast</div>
+    <div class="clock-widget">
+      <div class="clock-icon"></div>
+      <div>
+        <div class="clock-time" id="time">Loading...</div>
+        <div class="clock-date" id="date">LOADING</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="content-area">
+    <div class="screen active" id="screen1">
+      <div class="station-data">
+        <div class="data-card">
+          <div class="data-label">Temperature</div>
+          <div class="data-value" id="stationTemp">--</div>
+          <div class="data-unit">°F</div>
+        </div>
+        <div class="data-card">
+          <div class="data-label">Humidity</div>
+          <div class="data-value" id="stationHumidity">--</div>
+          <div class="data-unit">%</div>
+        </div>
+        <div class="data-card">
+          <div class="data-label">Wind Speed</div>
+          <div class="data-value" id="stationWind">--</div>
+          <div class="data-unit">mph</div>
+        </div>
+        <div class="data-card">
+          <div class="data-label">Dew Point</div>
+          <div class="data-value" id="stationDew">--</div>
+          <div class="data-unit">°F</div>
+        </div>
+        <div class="data-card">
+          <div class="data-label">Pressure</div>
+          <div class="data-value" id="stationPressure">--</div>
+          <div class="data-unit">inHg</div>
+        </div>
+        <div class="data-card">
+          <div class="data-label">Rain Today</div>
+          <div class="data-value" id="stationRain">--</div>
+          <div class="data-unit">in</div>
+        </div>
+      </div>
+      <div class="station-credit">Data from College of the Canyons Weather Station (CLLCN)</div>
+    </div>
+
+    <div class="screen" id="screen2">
+      <div class="local-forecast" id="forecastText">
+        <div class="loading">LOADING FORECAST DATA...</div>
+      </div>
+    </div>
+
+    <div class="screen" id="screen3">
+      <div class="extended-forecast" id="extendedForecast">
+        <div class="loading">LOADING EXTENDED FORECAST...</div>
+      </div>
+    </div>
+
+    <div class="screen" id="screen4">
+      <div class="almanac-screen" id="almanacData">
+        <div class="loading">LOADING ALMANAC DATA...</div>
+      </div>
+    </div>
+
+    <div class="screen" id="screen5">
+      <div class="regional-map">
+        <div id="map"></div>
+        <div class="map-overlay" id="mapMarkers"></div>
+      </div>
+    </div>
+
+    <div class="screen" id="screen6">
+      <div class="observations-table">
+        <div class="obs-table" id="observationsTable">
+          <div class="loading">LOADING OBSERVATIONS...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-bar">
+    <div class="info-text" id="bottomInfo">Loading...</div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ============================================
+// UPDATE THIS SECTION WITH YOUR STATION DATA
+// Use update-station.js to get current values
+// ============================================
+const STATION_CONFIG = {
+  manualData: {
+    temperature: 72,
+    humidity: 45,
+    windSpeed: 8,
+    dewPoint: 58,
+    pressure: 30.12,
+    rainfall: 0.00
+  },
+  location: { 
+    lat: 34.4117,
+    lon: -118.5698,
+    name: 'College of the Canyons',
+    stationId: 'CLLCN'
+  }
+};
+
+const NEARBY_CITIES = [
+  { name: 'Santa Clarita', lat: 34.3917, lon: -118.5426 },
+  { name: 'Los Angeles', lat: 34.0522, lon: -118.2437 },
+  { name: 'Burbank', lat: 34.1808, lon: -118.3090 },
+  { name: 'Palmdale', lat: 34.5794, lon: -118.1165 },
+  { name: 'Simi Valley', lat: 34.2694, lon: -118.7815 },
+  { name: 'Ventura', lat: 34.2746, lon: -119.2290 },
+  { name: 'Oxnard', lat: 34.1975, lon: -119.1771 }
+];
+
+let weatherData = {};
+let map = null;
+let currentScreen = 1;
+const totalScreens = 6;
+
+function updateStationDisplay() {
+  const data = STATION_CONFIG.manualData;
+  document.getElementById('stationTemp').textContent = Math.round(data.temperature);
+  document.getElementById('stationHumidity').textContent = Math.round(data.humidity);
+  document.getElementById('stationWind').textContent = Math.round(data.windSpeed);
+  document.getElementById('stationDew').textContent = Math.round(data.dewPoint);
+  document.getElementById('stationPressure').textContent = data.pressure.toFixed(2);
+  document.getElementById('stationRain').textContent = data.rainfall.toFixed(2);
+}
+
+async function fetchWeather() {
+  try {
+    const loc = STATION_CONFIG.location;
+    const currentResponse = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,wind_speed_10m,wind_direction_10m&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=America/Los_Angeles`);
+    const currentData = await currentResponse.json();
+    
+    const forecastResponse = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset&temperature_unit=fahrenheit&timezone=America/Los_Angeles&forecast_days=7`);
+    const forecastData = await forecastResponse.json();
+    
+    const citiesPromises = NEARBY_CITIES.map(city =>
+      fetch(`https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}&current=temperature_2m,weather_code,wind_speed_10m,wind_direction_10m&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=America/Los_Angeles`)
+        .then(r => r.json())
+        .then(data => ({ ...city, weather: data }))
+    );
+    const citiesData = await Promise.all(citiesPromises);
+    
+    weatherData = { current: currentData, forecast: forecastData, cities: citiesData };
+    updateAllScreens();
+  } catch (error) {
+    console.error('Error fetching weather:', error);
+  }
+}
+
+function getWeatherIcon(condition) {
+  const iconMap = {
+    'clear': '☀️', 'clouds': '⛅', 'rain': '🌧️',
+    'drizzle': '🌦️', 'thunderstorm': '⛈️', 'snow': '🌨️',
+    'mist': '🌫️', 'fog': '🌫️'
+  };
+  const main = condition.toLowerCase();
+  for (let key in iconMap) {
+    if (main.includes(key)) return iconMap[key];
+  }
+  return '⛅';
+}
+
+function getWeatherSVG(condition) {
+  const main = condition.toLowerCase();
+  if (main.includes('thunder')) {
+    return `<svg width="80" height="80" viewBox="0 0 100 100"><ellipse class="cloud-part" cx="50" cy="40" rx="28" ry="18"/><ellipse class="cloud-part" cx="38" cy="48" rx="22" ry="15"/><ellipse class="cloud-part" cx="62" cy="48" rx="20" ry="15"/><path class="lightning" d="M50 55 L45 65 L50 65 L47 75 L55 62 L50 62 Z"/><rect class="rain-drop" x="40" y="68" width="3" height="8" rx="1.5"/><rect class="rain-drop" x="60" y="70" width="3" height="8" rx="1.5"/></svg>`;
+  } else if (main.includes('rain') || main.includes('drizzle')) {
+    return `<svg width="80" height="80" viewBox="0 0 100 100"><circle class="sun-part" cx="30" cy="30" r="15"/><ellipse class="cloud-part" cx="55" cy="50" rx="25" ry="15"/><ellipse class="cloud-part" cx="45" cy="55" rx="20" ry="12"/><ellipse class="cloud-part" cx="65" cy="55" rx="18" ry="12"/><rect class="rain-drop" x="45" y="65" width="3" height="8" rx="1.5"/><rect class="rain-drop" x="55" y="67" width="3" height="8" rx="1.5"/><rect class="rain-drop" x="65" y="65" width="3" height="8" rx="1.5"/></svg>`;
+  } else if (main.includes('cloud')) {
+    return `<svg width="80" height="80" viewBox="0 0 100 100"><circle class="sun-part" cx="35" cy="35" r="18"/><ellipse class="cloud-part" cx="58" cy="50" rx="24" ry="15"/><ellipse class="cloud-part" cx="48" cy="55" rx="20" ry="12"/><ellipse class="cloud-part" cx="68" cy="55" rx="16" ry="12"/></svg>`;
+  }
+  return `<svg width="80" height="80" viewBox="0 0 100 100"><circle class="sun-part" cx="50" cy="50" r="25"/></svg>`;
+}
+
+function getWeatherDescription(code) {
+  const d = {0:'Clear',1:'Mainly Clear',2:'Partly Cloudy',3:'Cloudy',45:'Foggy',48:'Foggy',51:'Light Drizzle',53:'Drizzle',55:'Heavy Drizzle',61:'Light Rain',63:'Rain',65:'Heavy Rain',71:'Light Snow',73:'Snow',75:'Heavy Snow',80:'Light Showers',81:'Showers',82:'Heavy Showers',95:'Thunderstorm',96:'T-storm w/ Hail',99:'Heavy T-storm'};
+  return d[code] || 'Unknown';
+}
+
+function getWindDirection(degrees) {
+  return ['N','NE','E','SE','S','SW','W','NW'][Math.round(degrees/45)%8];
+}
+
+function updateAllScreens() {
+  updateStationDisplay();
+  updateForecastText();
+  updateExtendedForecast();
+  updateAlmanac();
+  updateObservations();
+  updateBottomBar();
+  initMap();
+}
+
+function updateForecastText() {
+  const current = weatherData.current.current;
+  const desc = getWeatherDescription(current.weather_code);
+  const windDir = getWindDirection(current.wind_direction_10m);
+  document.getElementById('forecastText').innerHTML = `TODAY...${desc.toUpperCase()}. HIGH NEAR<br>${Math.round(current.temperature_2m)}°F. ${windDir} WINDS AROUND<br>${Math.round(current.wind_speed_10m)} MPH.<br><br>TONIGHT...${desc.toUpperCase()}. LOW<br>AROUND ${Math.round(weatherData.forecast.daily.temperature_2m_min[0])}°F.`;
+}
+
+function updateExtendedForecast() {
+  const days = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+  let html = '';
+  for (let i = 1; i <= 3; i++) {
+    const date = new Date(weatherData.forecast.daily.time[i]);
+    const dayName = days[date.getDay()];
+    const code = weatherData.forecast.daily.weather_code[i];
+    const desc = getWeatherDescription(code);
+    const high = Math.round(weatherData.forecast.daily.temperature_2m_max[i]);
+    const low = Math.round(weatherData.forecast.daily.temperature_2m_min[i]);
+    html += `<div class="forecast-card"><div class="forecast-day">${dayName}</div><div class="weather-icon-large">${getWeatherSVG(desc)}</div><div class="forecast-desc">${desc}</div><div class="forecast-temps"><span class="lo">Lo ${low}</span> <span class="hi">Hi ${high}</span></div></div>`;
+  }
+  document.getElementById('extendedForecast').innerHTML = html;
+}
+
+function updateAlmanac() {
+  const today = new Date(weatherData.forecast.daily.time[0]);
+  const tomorrow = new Date(weatherData.forecast.daily.time[1]);
+  const formatTime = (t) => new Date(t).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});
+  const todayName = today.toLocaleDateString('en-US',{weekday:'long'});
+  const tomorrowName = tomorrow.toLocaleDateString('en-US',{weekday:'long'});
+  document.getElementById('almanacData').innerHTML = `<div class="almanac-section"><div class="almanac-title">${todayName} &nbsp;&nbsp;&nbsp; ${tomorrowName}</div><div class="almanac-row"><span>Sunrise: ${formatTime(weatherData.forecast.daily.sunrise[0])}</span><span>${formatTime(weatherData.forecast.daily.sunrise[1])}</span></div><div class="almanac-row"><span>Sunset: ${formatTime(weatherData.forecast.daily.sunset[0])}</span><span>${formatTime(weatherData.forecast.daily.sunset[1])}</span></div></div><div class="moon-phases"><div class="almanac-title">Moon Data:</div><div class="moon-grid"><div class="moon-phase"><div class="moon-label">Full</div><div class="moon-icon">🌕</div><div class="moon-date">May 1</div></div><div class="moon-phase"><div class="moon-label">Last</div><div class="moon-icon">🌗</div><div class="moon-date">May 9</div></div><div class="moon-phase"><div class="moon-label">New</div><div class="moon-icon">🌑</div><div class="moon-date">May 16</div></div><div class="moon-phase"><div class="moon-label">First</div><div class="moon-icon">🌓</div><div class="moon-date">May 23</div></div></div></div>`;
+}
+
+function updateObservations() {
+  let html = '';
+  weatherData.cities.forEach(city => {
+    const current = city.weather.current;
+    const temp = Math.round(current.temperature_2m);
+    const desc = getWeatherDescription(current.weather_code);
+    const windSpeed = Math.round(current.wind_speed_10m);
+    const windDir = getWindDirection(current.wind_direction_10m);
+    const windText = windSpeed > 0 ? `${windDir} ${windSpeed}` : 'Calm';
+    html += `<div class="obs-row"><div class="obs-city">${city.name}</div><div class="obs-temp">${temp}</div><div class="obs-condition">${desc}</div><div class="obs-wind">${windText}</div></div>`;
+  });
+  document.getElementById('observationsTable').innerHTML = html;
+}
+
+function updateBottomBar() {
+  const data = STATION_CONFIG.manualData;
+  bottomInfo[0] = `College of the Canyons Weather Station - Santa Clarita, CA`;
+  bottomInfo[1] = `Humidity: ${data.humidity}% • Dewpoint: ${data.dewPoint}°F`;
+  bottomInfo[2] = getWeatherDescription(weatherData.current.current.weather_code);
+  bottomInfo[3] = `Wind: ${data.windSpeed} mph • Pressure: ${data.pressure} inHg`;
+  bottomInfo[4] = `Rainfall Today: ${data.rainfall} in`;
+  document.getElementById('bottomInfo').innerHTML = bottomInfo[currentScreen - 1];
+}
+
+function initMap() {
+  if (map) return;
+  map = L.map('map',{zoomControl:false,attributionControl:false,dragging:false,scrollWheelZoom:false,doubleClickZoom:false,touchZoom:false}).setView([STATION_CONFIG.location.lat,STATION_CONFIG.location.lon],9);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+  L.marker([STATION_CONFIG.location.lat,STATION_CONFIG.location.lon],{icon:L.divIcon({className:'custom-marker',html:'<div style="background:#ffeb3b;width:16px;height:16px;border-radius:50%;border:3px solid white;box-shadow:0 0 10px rgba(0,0,0,0.5);"></div>',iconSize:[22,22]})}).addTo(map);
+  updateMapMarkers();
+}
+
+function updateMapMarkers() {
+  const container = document.getElementById('mapMarkers');
+  container.innerHTML = '';
+  weatherData.cities.forEach(city => {
+    const point = map.latLngToContainerPoint([city.lat,city.lon]);
+    const temp = Math.round(city.weather.current.temperature_2m);
+    const icon = getWeatherIcon(getWeatherDescription(city.weather.current.weather_code));
+    const marker = document.createElement('div');
+    marker.className = 'city-marker';
+    marker.style.left = point.x + 'px';
+    marker.style.top = point.y + 'px';
+    marker.innerHTML = `<div>${city.name}</div><div class="city-temp">${temp}</div><div class="weather-icon-map">${icon}</div>`;
+    container.appendChild(marker);
+  });
+}
+
+const screenTitles = ['College of the Canyons<span class="screen-subtitle">Current Conditions</span>','Local Forecast','Santa Clarita, California<span class="screen-subtitle">Extended Forecast</span>','Almanac','Southern California','Latest Observations'];
+const bottomInfo = ['Loading...','Loading...','Loading...','Loading...','Loading...','Loading...'];
+
+function updateTime() {
+  const now = new Date();
+  document.getElementById('time').textContent = now.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',second:'2-digit',hour12:true,timeZone:'America/Los_Angeles'});
+  document.getElementById('date').textContent = now.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',timeZone:'America/Los_Angeles'}).toUpperCase().replace(',','');
+}
+
+function switchScreen() {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(`screen${currentScreen}`).classList.add('active');
+  document.getElementById('screenTitle').innerHTML = screenTitles[currentScreen - 1];
+  document.getElementById('bottomInfo').innerHTML = bottomInfo[currentScreen - 1];
+  if (currentScreen === 5 && map) {
+    setTimeout(() => {
+      map.invalidateSize();
+      updateMapMarkers();
+    }, 100);
+  }
+  currentScreen++;
+  if (currentScreen > totalScreens) currentScreen = 1;
+}
+
+updateStationDisplay();
+fetchWeather();
+updateTime();
+setInterval(updateTime, 1000);
+setInterval(switchScreen, 8000);
+setInterval(fetchWeather, 300000);
+</script>
+</body>
+</html>
